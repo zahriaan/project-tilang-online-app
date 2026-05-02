@@ -1,46 +1,56 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'autentikasi/masuk_screen.dart';
+import 'home_screen.dart'; 
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(Duration(seconds: 3), () {
-      Navigator.pushReplacement(
-          context, MaterialPageRoute(builder: (context) => MasukScreen()));
+    _mulaiProsesMemuat();
+  }
+
+  void _mulaiProsesMemuat() {
+    Timer(const Duration(seconds: 3), () {
+      User? currentUser = FirebaseAuth.instance.currentUser;
+
+      if (mounted) {
+        if (currentUser != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomeScreen()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MasukScreen()),
+          );
+        }
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF0D47A1), 
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.security, size: 100, color: Colors.white),
-            SizedBox(height: 20),
-            Text(
-              "SIPEGAR",
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 2,
-              ),
-            ),
-            Text(
-              "Sistem Informasi Pelanggaran Berkendara",
-              style: TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-          ],
+      // Scaffold tanpa AppBar agar gambar bisa full menutupi layar
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/splash_bg.png'), 
+            fit: BoxFit.cover, 
+          ),
         ),
       ),
     );
