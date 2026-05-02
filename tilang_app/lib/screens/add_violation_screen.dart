@@ -1,9 +1,9 @@
 import 'dart:io';
+import 'dart:convert'; 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../services/storage_service.dart';
 import '../services/location_service.dart';
 import '../services/database_service.dart';
 import '../model/model_pelanggaran.dart';
@@ -16,11 +16,12 @@ class AddViolationScreen extends StatefulWidget {
 }
 
 class _AddViolationScreenState extends State<AddViolationScreen> {
-  final StorageService _storage = StorageService();
   final LocationService _location = LocationService();
   final DatabaseService _db = DatabaseService();
   
-  File? _gambarTerpilih;
+  XFile? _gambarTerpilih; 
+  String? _fotoBase64; // Variabel penyimpan teks foto
+  
   String _kategoriDipilih = 'Tidak Pakai Helm';
   final _platController = TextEditingController();
   final _deskripsiController = TextEditingController();
@@ -39,17 +40,25 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
 
   Future<void> _pilihFoto(ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source, imageQuality: 50);
+    final pickedFile = await picker.pickImage(
+      source: source, 
+      imageQuality: 20, 
+      maxWidth: 400,
+    );
     
     if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      String base64String = base64Encode(bytes);
+
       setState(() {
-        _gambarTerpilih = File(pickedFile.path);
+        _gambarTerpilih = pickedFile;
+        _fotoBase64 = base64String;
       });
     }
   }
 
   Future<void> _prosesSimpan() async {
-    if (_gambarTerpilih == null) {
+    if (_fotoBase64 == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Foto bukti wajib ada!")));
       return;
     }
@@ -59,15 +68,13 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
     try {
       Position? posisi = await _location.dapatkanLokasiSekarang();
       
-      String? urlFoto = await _storage.unggahFotoPelanggaran(_gambarTerpilih!);
-
-      if (posisi != null && urlFoto != null) {
+      if (posisi != null) {
         ModelPelanggaran dataBaru = ModelPelanggaran(
           idPetugas: FirebaseAuth.instance.currentUser!.uid,
           kategori: _kategoriDipilih,
           deskripsi: _deskripsiController.text,
           platNomor: _platController.text.isEmpty ? 'Tanpa Plat' : _platController.text.toUpperCase(),
-          fotoUrl: urlFoto,
+          fotoUrl: _fotoBase64!, // <- MENGGUNAKAN TEKS BASE64 SEBAGAI PENGGANTI URL
           latitude: posisi.latitude,
           longitude: posisi.longitude,
           waktuKejadian: DateTime.now(),
@@ -76,13 +83,19 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
 
         await _db.simpanPelanggaran(dataBaru);
         
-        Navigator.pop(context); // Kembali ke Home setelah berhasil
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Laporan Berhasil Terkirim!")));
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Laporan Berhasil Terkirim!")));
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal: $e")));
+      }
     } finally {
-      setState(() => _sedangLoading = false);
+      if (mounted) {
+        setState(() => _sedangLoading = false);
+      }
     }
   }
 
@@ -96,9 +109,8 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Tampilan Preview Foto
                 GestureDetector(
-                  onTap: () => _pilihFoto(ImageSource.camera),
+                  onTap: () => _pilihFoto(ImageSource.camera), 
                   child: Container(
                     height: 200,
                     width: double.infinity,
@@ -117,13 +129,12 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
                         )
                       : ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.file(_gambarTerpilih!, fit: BoxFit.cover),
+                          child: Image.file(File(_gambarTerpilih!.path), fit: BoxFit.cover),
                         ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 
-                // Dropdown Kategori
                 DropdownButtonFormField(
                   value: _kategoriDipilih,
                   decoration: const InputDecoration(labelText: "Kategori Pelanggaran", border: OutlineInputBorder()),
@@ -132,14 +143,12 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Input Plat Nomor (Opsional)
                 TextField(
                   controller: _platController,
                   decoration: const InputDecoration(labelText: "Nomor Plat (Opsional)", border: OutlineInputBorder(), hintText: "Contoh: BG 1234 ABC"),
                 ),
                 const SizedBox(height: 20),
 
-                // Input Deskripsi
                 TextField(
                   controller: _deskripsiController,
                   maxLines: 3,
@@ -147,7 +156,6 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // Tombol Simpan
                 SizedBox(
                   width: double.infinity,
                   height: 50,

@@ -13,6 +13,8 @@ class _DaftarScreenState extends State<DaftarScreen> {
   final _konfirmasiController = TextEditingController();
   final AuthService _auth = AuthService();
 
+  bool _sedangLoading = false;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,12 +86,18 @@ class _DaftarScreenState extends State<DaftarScreen> {
                   backgroundColor: Color(0xFF0D47A1),
                   foregroundColor: Colors.white,
                 ),
-                onPressed: () async {
+                // Jika sedang loading, tombol di-disable (menjadi null)
+                onPressed: _sedangLoading ? null : () async {
                   if (_passwordController.text != _konfirmasiController.text) {
                     ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("Kata sandi tidak cocok!")));
                     return;
                   }
+
+                  // Mengubah status UI menjadi loading
+                  setState(() {
+                    _sedangLoading = true;
+                  });
 
                   String? result = await _auth.daftarPetugas(
                     nama: _namaController.text,
@@ -97,16 +105,31 @@ class _DaftarScreenState extends State<DaftarScreen> {
                     password: _passwordController.text,
                   );
 
+                  // Mengembalikan status UI dari loading setelah proses selesai
+                  setState(() {
+                    _sedangLoading = false;
+                  });
+
                   if (result == null) {
                     ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("Pendaftaran Berhasil! Silakan Masuk.")));
-                    Navigator.pop(context);
+                    Navigator.pop(context); // Kembali ke halaman login
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("Gagal Daftar: $result")));
                   }
                 },
-                child: Text("DAFTAR SEKARANG"),
+                // Animasi Putar (Loading) jika sedang proses mendaftar
+                child: _sedangLoading
+                    ? SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text("DAFTAR SEKARANG"),
               ),
             ),
             SizedBox(height: 20),

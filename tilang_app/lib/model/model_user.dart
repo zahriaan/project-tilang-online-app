@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class ModelUser {
   final String uid; // ID Unik dari Firebase Auth
   final String nama;
