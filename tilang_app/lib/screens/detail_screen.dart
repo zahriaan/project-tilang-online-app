@@ -65,6 +65,9 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 1. CEK APAKAH YANG LOGIN ADALAH KOMANDAN
+    final bool isKomandan = FirebaseAuth.instance.currentUser?.email == 'komandan@sipegar.com';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Detail Pelanggaran"),
@@ -136,7 +139,6 @@ class _DetailScreenState extends State<DetailScreen> {
                   const Divider(height: 40),
                   const Text("Koordinasi Petugas (Komentar):", style: TextStyle(fontWeight: FontWeight.bold)),
                   
-                  // Menampilkan List Komentar
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -144,23 +146,105 @@ class _DetailScreenState extends State<DetailScreen> {
                     itemBuilder: (context, index) {
                       var k = widget.pelanggaran.komentar[index];
                       
-                      String namaPengirim = k.idPetugas.isNotEmpty ? k.idPetugas : "Anonim";
-                      String avatarUrl = 'https://ui-avatars.com/api/?name=$namaPengirim&color=FFFFFF&background=0D47A1&bold=true';
+                      return FutureBuilder<DocumentSnapshot>(
+                        future: FirebaseFirestore.instance.collection('users').doc(k.idPetugas).get(),
+                        builder: (context, userSnapshot) {
+                          String namaTampil = k.idPetugas; 
+                          String? fotoBase64;
 
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: NetworkImage(avatarUrl),
-                          backgroundColor: Colors.transparent, 
-                        ),
-                        title: Text(k.isiKomentar),
-                        subtitle: Text("$namaPengirim • ${DateFormat('HH:mm').format(k.waktuKomentar)}"),
+                          if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                            var userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                            
+                            if (userData['email'] == 'komandan@sipegar.com') {
+                              namaTampil = "Kenzo Gonzales";
+                            } else if (userData.containsKey('namaLengkap') && userData['namaLengkap'].toString().isNotEmpty) {
+                              namaTampil = userData['namaLengkap'];
+                            } else if (userData.containsKey('nama') && userData['nama'].toString().isNotEmpty) {
+                              namaTampil = userData['nama'];
+                            }
+
+                            if (userData.containsKey('fotoProfil')) {
+                              fotoBase64 = userData['fotoProfil'];
+                            }
+                          }
+
+                          Widget avatarWidget;
+                          if (fotoBase64 != null && fotoBase64.isNotEmpty) {
+                            avatarWidget = CircleAvatar(
+                              backgroundImage: MemoryImage(base64Decode(fotoBase64)),
+                              backgroundColor: const Color(0xFF0D47A1),
+                            );
+                          } else {
+                            String urlAvatar = 'https://ui-avatars.com/api/?name=$namaTampil&color=FFFFFF&background=0D47A1&bold=true';
+                            avatarWidget = CircleAvatar(
+                              backgroundImage: NetworkImage(urlAvatar),
+                              backgroundColor: Colors.transparent,
+                            );
+                          }
+
+                          return ListTile(
+                            leading: avatarWidget,
+                            title: Text(k.isiKomentar),
+                            subtitle: Text("$namaTampil • ${DateFormat('HH:mm').format(k.waktuKomentar)}"),
+                            
+                            // 2. TOMBOL HAPUS KHUSUS KOMANDAN
+                            trailing: isKomandan ? IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (dialogContext) => AlertDialog(
+                                    title: const Text("Hapus Komentar?"),
+                                    content: const Text("Sebagai komandan, Anda berhak menghapus komentar ini dari sistem."),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext), 
+                                        child: const Text("Batal", style: TextStyle(color: Colors.grey))
+                                      ),
+                                      TextButton(
+                                        onPressed: () async {
+                                          Navigator.pop(dialogContext); // Tutup pop-up
+                                          try {
+                                            // Hapus dari UI layar
+                                            setState(() {
+                                              widget.pelanggaran.komentar.removeAt(index);
+                                            });
+
+                                            // Langsung eksekusi tembak ke Firestore Database untuk dihapus permanen
+                                            var docRef = FirebaseFirestore.instance.collection('pelanggaran').doc(widget.pelanggaran.id);
+                                            var docSnapshot = await docRef.get();
+                                            if (docSnapshot.exists) {
+                                              List<dynamic> listKomentarDB = docSnapshot.data()?['komentar'] ?? [];
+                                              if (index < listKomentarDB.length) {
+                                                listKomentarDB.removeAt(index);
+                                                await docRef.update({'komentar': listKomentarDB});
+                                              }
+                                            }
+                                            
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Komentar berhasil dihapus.")));
+                                            }
+                                          } catch (e) {
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal menghapus: $e")));
+                                            }
+                                          }
+                                        },
+                                        child: const Text("Hapus", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ) : null, // Jika bukan komandan, trailing-nya kosong (null)
+                          );
+                        },
                       );
                     },
                   ),
 
                   const SizedBox(height: 10),
 
-                  // Kolom Input Komentar
                   Row(
                     children: [
                       Expanded(
@@ -184,11 +268,10 @@ class _DetailScreenState extends State<DetailScreen> {
                           onPressed: () async {
                             if (_komentarController.text.trim().isNotEmpty) {
                               try {
-                                String emailAkun = FirebaseAuth.instance.currentUser?.email ?? "";
-                                String namaUser = emailAkun.contains('@') ? emailAkun.split('@')[0] : "Petugas";
+                                String uidKomentator = FirebaseAuth.instance.currentUser?.uid ?? "Anonim";
 
                                 ModelKomentar mKom = ModelKomentar(
-                                  idPetugas: namaUser, 
+                                  idPetugas: uidKomentator, 
                                   isiKomentar: _komentarController.text.trim(),
                                   waktuKomentar: DateTime.now()
                                 );

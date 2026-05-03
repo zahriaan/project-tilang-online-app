@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart'; 
 import '../pengelola/pengelola_tema.dart'; 
-import 'autentikasi/masuk_screen.dart';
+import 'splash_screen.dart'; // Import diubah kembali ke SplashScreen
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -57,7 +57,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       String base64String = base64Encode(bytes);
 
       try {
-        // StreamBuilder akan otomatis mendeteksi perubahan ini dan merender ulang foto!
         await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).set({
           'fotoProfil': base64String,
         }, SetOptions(merge: true));
@@ -77,11 +76,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _tampilkanDialogGantiPassword() {
+    final TextEditingController passwordController = TextEditingController();
+    bool isUpdating = false;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Ganti Password", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Masukkan password baru Anda (minimal 6 karakter):"),
+                  const SizedBox(height: 15),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true, 
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      labelText: "Password Baru",
+                      prefixIcon: const Icon(Icons.lock, color: Color(0xFF0D47A1)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  onPressed: isUpdating ? null : () async {
+                    if (passwordController.text.trim().length < 6) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Password minimal 6 karakter!"))
+                      );
+                      return;
+                    }
+
+                    setStateDialog(() => isUpdating = true);
+
+                    try {
+                      await currentUser!.updatePassword(passwordController.text.trim());
+                      
+                      if (mounted) {
+                        Navigator.pop(context); 
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Password berhasil diubah!"), backgroundColor: Colors.green)
+                        );
+                      }
+                    } on FirebaseAuthException catch (e) {
+                      if (mounted) {
+                        Navigator.pop(context); 
+                        String errorText = "Gagal mengubah password.";
+                        
+                        if (e.code == 'requires-recent-login') {
+                          errorText = "Sesi habis. Silakan Logout dan Login kembali untuk mengganti password.";
+                        }
+                        
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(errorText), backgroundColor: Colors.red)
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D47A1),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                  ),
+                  child: isUpdating 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Simpan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+
+  // FUNGSI LOGOUT YANG SUDAH DIKEMBALIKAN KE SPLASH SCREEN
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const MasukScreen()),
+        MaterialPageRoute(builder: (context) => const SplashScreen()),
         (Route<dynamic> route) => false,
       );
     }
@@ -100,14 +183,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: const Color(0xFF0D47A1),
         elevation: 0,
       ),
-      // KUNCI SAKTI: StreamBuilder akan memantau Database secara Real-Time
       body: currentUser == null 
         ? const Center(child: Text("Silakan login kembali."))
         : StreamBuilder<DocumentSnapshot>(
             stream: FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).snapshots(),
             builder: (context, snapshot) {
               
-              // 1. Data Bawaan / Darurat (Jika database delay/belum ada data)
               String displayName = currentEmail.contains('@') ? currentEmail.split('@')[0] : "Petugas";
               if (displayName.isNotEmpty) {
                 displayName = displayName[0].toUpperCase() + displayName.substring(1);
@@ -115,17 +196,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               String jabatanText = "PETUGAS LAPANGAN";
               String? fotoProfilBase64;
 
-              // 2. Logika Komandan
               if (isKomandan) {
                 displayName = "Kenzo Gonzales"; 
                 jabatanText = "KOMANDAN";
               }
 
-              // 3. MENARIK DATA REAL-TIME DARI FIRESTORE
               if (snapshot.hasData && snapshot.data!.exists) {
                 var data = snapshot.data!.data() as Map<String, dynamic>;
 
-                // Tarik nama kalau bukan komandan
                 if (!isKomandan) {
                   if (data.containsKey('namaLengkap') && data['namaLengkap'].toString().isNotEmpty) {
                     displayName = data['namaLengkap'];
@@ -134,7 +212,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }
                 }
 
-                // Tarik foto profil
                 if (data.containsKey('fotoProfil')) {
                   fotoProfilBase64 = data['fotoProfil'];
                 }
@@ -145,7 +222,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     const SizedBox(height: 30),
                     
-                    // FOTO PROFIL & IKON KAMERA
                     Stack(
                       alignment: Alignment.bottomRight,
                       children: [
@@ -172,7 +248,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 15),
                     
-                    // NAMA PENGGUNA & JABATAN 
                     Text(
                       displayName,
                       style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -183,7 +258,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 30),
 
-                    // LIST MENU BAWAH
                     const Divider(height: 1),
                     
                     ListTile(
@@ -218,7 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: const Text("Ganti Password", style: TextStyle(fontWeight: FontWeight.w500)),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Arahkan ke form ganti password")));
+                        _tampilkanDialogGantiPassword(); 
                       },
                     ),
                     const Divider(height: 1),
