@@ -11,13 +11,57 @@ import 'favorite_screen.dart';
 import 'package:intl/intl.dart';    
 
 class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _selectedIndex = 0; 
+
+  final List<Widget> _halaman = [
+    const BerandaTab(),      
+    const FavoriteScreen(),  
+    const ProfileScreen(),   
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _halaman[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        selectedItemColor: const Color(0xFF0D47A1),
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index; 
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Beranda"),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favorit"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profil"),
+        ],
+      ),
+    );
+  }
+}
+
+class BerandaTab extends StatefulWidget {
+  const BerandaTab({super.key});
+
+  @override
+  _BerandaTabState createState() => _BerandaTabState();
+}
+
+class _BerandaTabState extends State<BerandaTab> {
   final DatabaseService _db = DatabaseService();
   String kataKunci = ""; 
+
+  // TENTUKAN EMAIL KHUSUS KOMANDAN DI SINI
+  final String emailKomandan = "komandan@sipegar.com"; 
 
   Widget _tampilkanGambarAman(String kodeFoto) {
     try {
@@ -40,11 +84,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    // Ambil data user yang sedang login saat ini
+    final User? currentUser = FirebaseAuth.instance.currentUser;
+    final String currentUid = currentUser?.uid ?? '';
+    final String currentEmail = currentUser?.email ?? '';
+
+    // Cek apakah yang login adalah sang Komandan
+    final bool isKomandan = currentEmail == emailKomandan;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("SIPEGAR", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        automaticallyImplyLeading: false, 
+        title: Text(
+          isKomandan ? "SIPEGAR - Dashboard Komandan" : "SIPEGAR - Lini Masa", 
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)
+        ),
         backgroundColor: const Color(0xFF0D47A1),
         elevation: 0,
       ),
@@ -67,19 +121,20 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, snapshot) {
                 if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-                // REVISI LOGIKA PENCARIAN (BISA PLAT NOMOR ATAU KATEGORI)
                 var listData = snapshot.data!.where((p) {
                   String cari = kataKunci.toLowerCase();
                   bool cocokPlat = p.platNomor!.toLowerCase().contains(cari);
                   bool cocokKategori = p.kategori.toLowerCase().contains(cari);
-                  return cocokPlat || cocokKategori; // Jika salah satu cocok, tampilkan!
+                  return cocokPlat || cocokKategori; 
                 }).toList();
 
                 return ListView.builder(
                   itemCount: listData.length,
                   itemBuilder: (context, index) {
                     var data = listData[index];
+                    
                     bool isOwner = data.idPetugas == currentUid;
+                    bool bisaHapus = isOwner || isKomandan; 
 
                     return Card(
                       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -106,7 +161,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Share.share(pesanShare);
                               },
                             ),
-                            if (isOwner) 
+                            
+                            if (bisaHapus) 
                               IconButton(
                                 icon: const Icon(Icons.delete, color: Colors.red),
                                 onPressed: () {
@@ -114,7 +170,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     context: context,
                                     builder: (BuildContext dialogContext) => AlertDialog(
                                       title: const Text("Hapus Laporan?"),
-                                      content: const Text("Apakah kamu yakin ingin menghapus laporan ini? Data akan hilang permanen dari sistem."),
+                                      content: Text(
+                                        isKomandan 
+                                          ? "Sebagai Komandan, Anda akan menghapus laporan ini dari sistem secara permanen." 
+                                          : "Apakah kamu yakin ingin menghapus laporan ini? Data akan hilang permanen dari sistem."
+                                      ),
                                       actions: [
                                         TextButton(
                                           onPressed: () => Navigator.pop(dialogContext), 
@@ -161,24 +221,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF0D47A1),
-        child: const Icon(Icons.add, color: Colors.white),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddViolationScreen())),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: const Color(0xFF0D47A1),
-        onTap: (index) {
-          if (index == 1) Navigator.push(context, MaterialPageRoute(builder: (context) => FavoriteScreen()));
-          if (index == 2) Navigator.push(context, MaterialPageRoute(builder: (context) => ProfileScreen()));
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Beranda"),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favorit"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profil"),
-        ],
-      ),
+      floatingActionButton: isKomandan 
+          ? null 
+          : FloatingActionButton(
+              backgroundColor: const Color(0xFF0D47A1),
+              child: const Icon(Icons.add, color: Colors.white),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddViolationScreen())),
+            ),
     );
   }
 }

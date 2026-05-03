@@ -1,12 +1,11 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart'; 
 import '../pengelola/pengelola_tema.dart'; 
-import 'autentikasi/masuk_screen.dart'; 
+import 'autentikasi/masuk_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,245 +15,243 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final User? user = FirebaseAuth.instance.currentUser;
-  bool _isLoading = false;
+  final User? currentUser = FirebaseAuth.instance.currentUser;
+  final String emailKomandan = "komandan@sipegar.com"; 
 
-  Future<void> _gantiFotoProfil() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 15, 
-      maxWidth: 300,
-    );
+  int _totalFavorit = 0;
 
-    if (pickedFile != null) {
-      setState(() => _isLoading = true);
-      try {
-        final bytes = await pickedFile.readAsBytes();
-        String base64Image = base64Encode(bytes);
+  @override
+  void initState() {
+    super.initState();
+    _hitungFavorit();
+  }
 
-        await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
-          'fotoProfilBase64': base64Image,
-        }, SetOptions(merge: true));
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Foto profil berhasil diubah!")));
-        }
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Gagal mengubah foto: $e")));
-      } finally {
-        setState(() => _isLoading = false);
+  void _hitungFavorit() async {
+    if (currentUser == null) return;
+    try {
+      var snapshot = await FirebaseFirestore.instance
+          .collection('pelanggaran')
+          .where('likedBy', arrayContains: currentUser!.uid)
+          .get();
+          
+      if (mounted) {
+        setState(() {
+          _totalFavorit = snapshot.docs.length;
+        });
       }
+    } catch (e) {
+      debugPrint("Gagal menghitung favorit: $e");
     }
   }
 
-  Future<void> _tampilDialogGantiPassword() async {
-    final TextEditingController passwordController = TextEditingController();
-    bool isUpdating = false;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: const Text("Ganti Password"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text("Masukkan password baru Anda (Minimal 6 karakter):"),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      hintText: "Password Baru",
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.lock),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Batal", style: TextStyle(color: Colors.grey)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D47A1)),
-                  onPressed: isUpdating
-                      ? null
-                      : () async {
-                          if (passwordController.text.length < 6) {
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password minimal 6 karakter!")));
-                            return;
-                          }
-                          
-                          setStateDialog(() => isUpdating = true); 
-                          
-                          try {
-                            await user!.updatePassword(passwordController.text);
-                            if (mounted) {
-                              Navigator.pop(context); 
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password berhasil diubah!")));
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Gagal: Harus login ulang sebelum ganti password.")));
-                            }
-                            setStateDialog(() => isUpdating = false);
-                          }
-                        },
-                  child: isUpdating
-                      ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text("Simpan", style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            );
-          }
-        );
-      },
+  Future<void> _ubahFotoProfil() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery, 
+      imageQuality: 20, 
+      maxWidth: 400,
     );
+    
+    if (pickedFile != null && currentUser != null) {
+      final bytes = await pickedFile.readAsBytes();
+      String base64String = base64Encode(bytes);
+
+      try {
+        // StreamBuilder akan otomatis mendeteksi perubahan ini dan merender ulang foto!
+        await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).set({
+          'fotoProfil': base64String,
+        }, SetOptions(merge: true));
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Foto profil berhasil diperbarui!"))
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Gagal menyimpan foto: $e"))
+          );
+        }
+      }
+    }
   }
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
-      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const MasukScreen()), (route) => false);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const MasukScreen()),
+        (Route<dynamic> route) => false,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    String emailAkun = user?.email ?? "Tidak ada email";
-    String namaUser = emailAkun.contains('@') ? emailAkun.split('@')[0] : "Petugas";
-    String urlAvatarDefault = 'https://ui-avatars.com/api/?name=$namaUser&color=FFFFFF&background=0D47A1&bold=true&size=200';
-
-    // AMBIL DATA DARI PENGELOLA TEMA
-    final pengelolaTema = Provider.of<PengelolaTema>(context);
-    bool isDark = pengelolaTema.isDarkMode;
+    final temaPengelola = Provider.of<PengelolaTema>(context);
+    final String currentEmail = currentUser?.email ?? '';
+    final bool isKomandan = currentEmail == emailKomandan;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Profil Petugas", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        // Warna AppBar menyesuaikan mode terang/gelap
-        backgroundColor: isDark ? Colors.grey[900] : const Color(0xFF0D47A1), 
+        automaticallyImplyLeading: false,
+        title: const Text("Profil Pengguna", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: const Color(0xFF0D47A1),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-            
-            GestureDetector(
-              onTap: _gantiFotoProfil,
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  StreamBuilder<DocumentSnapshot>(
-                    stream: FirebaseFirestore.instance.collection('users').doc(user!.uid).snapshots(),
-                    builder: (context, snapshot) {
-                      if (_isLoading) return const CircleAvatar(radius: 60, backgroundColor: Colors.grey, child: CircularProgressIndicator(color: Colors.white));
-                      
-                      if (snapshot.hasData && snapshot.data!.exists) {
-                        var data = snapshot.data!.data() as Map<String, dynamic>;
-                        if (data.containsKey('fotoProfilBase64') && data['fotoProfilBase64'] != "") {
-                          try {
-                            Uint8List bytes = base64Decode(data['fotoProfilBase64']);
-                            return CircleAvatar(radius: 60, backgroundImage: MemoryImage(bytes));
-                          } catch (e) {}
-                        }
-                      }
-                      return CircleAvatar(radius: 60, backgroundImage: NetworkImage(urlAvatarDefault), backgroundColor: Colors.transparent);
-                    },
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(color: Colors.blueAccent, shape: BoxShape.circle),
-                    child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            Text(namaUser, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 5),
-            Text(emailAkun, style: const TextStyle(fontSize: 16, color: Colors.grey)),
-            
-            const SizedBox(height: 30),
-            
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                child: ListTile(
-                  leading: const CircleAvatar(backgroundColor: Colors.redAccent, child: Icon(Icons.favorite, color: Colors.white)),
-                  title: const Text("Total Favorit", style: TextStyle(fontWeight: FontWeight.bold)),
-                  trailing: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance.collection('pelanggaran').where('likedBy', arrayContains: user!.uid).snapshots(),
-                    builder: (context, snapshot) {
-                      int jumlahFav = snapshot.hasData ? snapshot.data!.docs.length : 0;
-                      return Text("$jumlahFav Laporan", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueAccent));
-                    },
-                  ),
-                ),
-              ),
-            ),
+      // KUNCI SAKTI: StreamBuilder akan memantau Database secara Real-Time
+      body: currentUser == null 
+        ? const Center(child: Text("Silakan login kembali."))
+        : StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).snapshots(),
+            builder: (context, snapshot) {
+              
+              // 1. Data Bawaan / Darurat (Jika database delay/belum ada data)
+              String displayName = currentEmail.contains('@') ? currentEmail.split('@')[0] : "Petugas";
+              if (displayName.isNotEmpty) {
+                displayName = displayName[0].toUpperCase() + displayName.substring(1);
+              }
+              String jabatanText = "PETUGAS LAPANGAN";
+              String? fotoProfilBase64;
 
-            const SizedBox(height: 20),
-            const Divider(thickness: 1),
+              // 2. Logika Komandan
+              if (isKomandan) {
+                displayName = "Kenzo Gonzales"; 
+                jabatanText = "KOMANDAN";
+              }
 
-            // SAKLAR MODE GELAP YANG SUDAH TERHUBUNG KE PUSAT LISTRIK
-            SwitchListTile(
-              secondary: Icon(Icons.dark_mode, color: isDark ? Colors.white : Colors.black87),
-              title: const Text("Mode Gelap", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              value: pengelolaTema.isDarkMode,
-              onChanged: (bool value) {
-                // Perintah dikirim ke PengelolaTema
-                pengelolaTema.toggleTheme(value); 
-              },
-            ),
+              // 3. MENARIK DATA REAL-TIME DARI FIRESTORE
+              if (snapshot.hasData && snapshot.data!.exists) {
+                var data = snapshot.data!.data() as Map<String, dynamic>;
 
-            const Divider(height: 1, indent: 20, endIndent: 20),
+                // Tarik nama kalau bukan komandan
+                if (!isKomandan) {
+                  if (data.containsKey('namaLengkap') && data['namaLengkap'].toString().isNotEmpty) {
+                    displayName = data['namaLengkap'];
+                  } else if (data.containsKey('nama') && data['nama'].toString().isNotEmpty) {
+                    displayName = data['nama'];
+                  }
+                }
 
-            ListTile(
-              leading: const Icon(Icons.lock_reset, color: Colors.blueAccent),
-              title: const Text("Ganti Password", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: _tampilDialogGantiPassword,
-            ),
-            
-            const Divider(height: 1, indent: 20, endIndent: 20),
+                // Tarik foto profil
+                if (data.containsKey('fotoProfil')) {
+                  fotoProfilBase64 = data['fotoProfil'];
+                }
+              }
 
-            ListTile(
-              leading: const Icon(Icons.exit_to_app, color: Colors.red),
-              title: const Text("Keluar Aplikasi", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.red)),
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text("Konfirmasi"),
-                    content: const Text("Apakah kamu yakin ingin keluar dari aplikasi?"),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal", style: TextStyle(color: Colors.grey))),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _logout();
-                        }, 
-                        child: const Text("Keluar", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+              return SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 30),
+                    
+                    // FOTO PROFIL & IKON KAMERA
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: const Color(0xFF0D47A1),
+                          backgroundImage: fotoProfilBase64 != null
+                              ? MemoryImage(base64Decode(fotoProfilBase64)) as ImageProvider
+                              : NetworkImage('https://ui-avatars.com/api/?name=$displayName&color=FFFFFF&background=0D47A1&bold=true&size=200'),
+                        ),
+                        GestureDetector(
+                          onTap: _ubahFotoProfil,
+                          child: Container(
+                            padding: const EdgeInsets.all(6), 
+                            decoration: BoxDecoration(
+                              color: Colors.blueAccent,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2)
+                            ),
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16), 
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    
+                    // NAMA PENGGUNA & JABATAN 
+                    Text(
+                      displayName,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      jabatanText,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                    ),
+                    const SizedBox(height: 30),
+
+                    // LIST MENU BAWAH
+                    const Divider(height: 1),
+                    
+                    ListTile(
+                      leading: const Icon(Icons.email, color: Colors.blueAccent),
+                      title: const Text("Email Akun", style: TextStyle(fontWeight: FontWeight.w500)),
+                      trailing: Text(currentEmail, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                    ),
+                    const Divider(height: 1),
+
+                    ListTile(
+                      leading: const Icon(Icons.favorite, color: Colors.red),
+                      title: const Text("Laporan Disimpan", style: TextStyle(fontWeight: FontWeight.w500)),
+                      trailing: Text("$_totalFavorit Favorit", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+                    ),
+                    const Divider(height: 1),
+
+                    ListTile(
+                      leading: const Icon(Icons.dark_mode),
+                      title: const Text("Mode Gelap", style: TextStyle(fontWeight: FontWeight.w500)),
+                      trailing: Switch(
+                        value: temaPengelola.themeMode == ThemeMode.dark,
+                        onChanged: (val) {
+                          temaPengelola.toggleTheme(val);
+                        },
+                        activeColor: const Color(0xFF0D47A1),
                       ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const Divider(thickness: 1),
-          ],
-        ),
-      ),
+                    ),
+                    const Divider(height: 1),
+                    
+                    ListTile(
+                      leading: const Icon(Icons.lock_reset, color: Colors.blueGrey),
+                      title: const Text("Ganti Password", style: TextStyle(fontWeight: FontWeight.w500)),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Arahkan ke form ganti password")));
+                      },
+                    ),
+                    const Divider(height: 1),
+                    
+                    ListTile(
+                      leading: const Icon(Icons.exit_to_app, color: Colors.red),
+                      title: const Text("Keluar Aplikasi", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.red)),
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text("Konfirmasi"),
+                            content: const Text("Apakah kamu yakin ingin keluar dari aplikasi?"),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Batal", style: TextStyle(color: Colors.grey))),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  _logout();
+                                }, 
+                                child: const Text("Keluar", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(thickness: 1),
+                  ],
+                ),
+              );
+            }
+          ),
     );
   }
 }

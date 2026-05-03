@@ -34,7 +34,7 @@ class _DetailScreenState extends State<DetailScreen> {
     try {
       _fotoDecoded = base64Decode(widget.pelanggaran.fotoUrl);
     } catch (e) {
-      print("Gagal membaca foto: $e");
+      debugPrint("Gagal membaca foto: $e");
     } finally {
       setState(() {
         _isDecoding = false;
@@ -82,7 +82,7 @@ class _DetailScreenState extends State<DetailScreen> {
               return IconButton(
                 icon: Icon(
                   isFav ? Icons.favorite : Icons.favorite_border,
-                  color: isFav ? Colors.red : Colors.white, // Jadi merah kalau difavoritkan
+                  color: isFav ? Colors.red : Colors.white, 
                 ),
                 onPressed: () async {
                   await _db.toggleFavorit(widget.pelanggaran.id!, currentUid, isFav);
@@ -136,6 +136,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   const Divider(height: 40),
                   const Text("Koordinasi Petugas (Komentar):", style: TextStyle(fontWeight: FontWeight.bold)),
                   
+                  // Menampilkan List Komentar
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -159,43 +160,62 @@ class _DetailScreenState extends State<DetailScreen> {
 
                   const SizedBox(height: 10),
 
+                  // Kolom Input Komentar
                   Row(
                     children: [
                       Expanded(
-                        child: TextField(controller: _komentarController, decoration: const InputDecoration(hintText: "Tambah koordinasi...")),
+                        child: TextField(
+                          controller: _komentarController, 
+                          decoration: const InputDecoration(
+                            hintText: "Tambah koordinasi...",
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          )
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.send, color: Color(0xFF0D47A1)),
-                        onPressed: () async {
-                          if (_komentarController.text.isNotEmpty) {
-                            try {
-                              String emailAkun = FirebaseAuth.instance.currentUser?.email ?? "";
-                              String namaUser = emailAkun.contains('@') ? emailAkun.split('@')[0] : "Petugas";
+                      const SizedBox(width: 10),
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0D47A1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.send, color: Colors.white),
+                          onPressed: () async {
+                            if (_komentarController.text.trim().isNotEmpty) {
+                              try {
+                                String emailAkun = FirebaseAuth.instance.currentUser?.email ?? "";
+                                String namaUser = emailAkun.contains('@') ? emailAkun.split('@')[0] : "Petugas";
 
-                              ModelKomentar mKom = ModelKomentar(
-                                idPetugas: namaUser, 
-                                isiKomentar: _komentarController.text,
-                                waktuKomentar: DateTime.now()
-                              );
-                              
-                              await _db.tambahKomentar(widget.pelanggaran.id!, mKom);
-                              
-                              setState(() {
-                                widget.pelanggaran.komentar.add(mKom);
-                                _komentarController.clear();
-                              });
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text("Gagal kirim: $e")),
+                                ModelKomentar mKom = ModelKomentar(
+                                  idPetugas: namaUser, 
+                                  isiKomentar: _komentarController.text.trim(),
+                                  waktuKomentar: DateTime.now()
                                 );
+                                
+                                await _db.tambahKomentar(widget.pelanggaran.id!, mKom);
+                                
+                                setState(() {
+                                  widget.pelanggaran.komentar.add(mKom);
+                                  _komentarController.clear();
+                                });
+
+                                if (mounted) FocusScope.of(context).unfocus(); 
+
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text("Gagal kirim: $e")),
+                                  );
+                                }
                               }
                             }
-                          }
-                        },
+                          },
+                        ),
                       )
                     ],
                   ),
+                  const SizedBox(height: 20), 
                 ],
               ),
             ),

@@ -32,11 +32,12 @@ class _FavoriteScreenState extends State<FavoriteScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text("Laporan Favorit", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: const Color(0xFF0D47A1),
       ),
       body: StreamBuilder<List<ModelPelanggaran>>(
-        // KITA PANGGIL FUNGSI KHUSUS FAVORIT DI SINI
+        // PANGGIL FUNGSI KHUSUS FAVORIT DI SINI
         stream: _db.streamPelanggaranFavorit(currentUid),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {

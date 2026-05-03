@@ -1,5 +1,6 @@
-import 'dart:io';
 import 'dart:convert'; 
+import 'dart:typed_data'; 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
@@ -19,8 +20,8 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
   final LocationService _location = LocationService();
   final DatabaseService _db = DatabaseService();
   
-  XFile? _gambarTerpilih; 
-  String? _fotoBase64; // Variabel penyimpan teks foto
+  Uint8List? _imageBytes; 
+  String? _fotoBase64; 
   
   String _kategoriDipilih = 'Tidak Pakai Helm';
   final _platController = TextEditingController();
@@ -51,8 +52,8 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
       String base64String = base64Encode(bytes);
 
       setState(() {
-        _gambarTerpilih = pickedFile;
-        _fotoBase64 = base64String;
+        _imageBytes = bytes; 
+        _fotoBase64 = base64String; 
       });
     }
   }
@@ -74,7 +75,7 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
           kategori: _kategoriDipilih,
           deskripsi: _deskripsiController.text,
           platNomor: _platController.text.isEmpty ? 'Tanpa Plat' : _platController.text.toUpperCase(),
-          fotoUrl: _fotoBase64!, // <- MENGGUNAKAN TEKS BASE64 SEBAGAI PENGGANTI URL
+          fotoUrl: _fotoBase64!, 
           latitude: posisi.latitude,
           longitude: posisi.longitude,
           waktuKejadian: DateTime.now(),
@@ -110,7 +111,16 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
             child: Column(
               children: [
                 GestureDetector(
-                  onTap: () => _pilihFoto(ImageSource.camera), 
+                  // LOGIKA CERDAS: CEK KONDISI WEB ATAU HP UNTUK PILIH FOTO
+                  onTap: () {
+                    if (kIsWeb) {
+                      // Buka folder kalau lagi ngetes di Laptop/Web 
+                      _pilihFoto(ImageSource.gallery); 
+                    } else {
+                      // Buka kamera langsung kalau di HP (Android/iOS)
+                      _pilihFoto(ImageSource.camera); 
+                    }
+                  }, 
                   child: Container(
                     height: 200,
                     width: double.infinity,
@@ -119,17 +129,22 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFF0D47A1))
                     ),
-                    child: _gambarTerpilih == null 
-                      ? const Column(
+                    child: _imageBytes == null 
+                      ? Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.camera_alt, size: 50, color: Color(0xFF0D47A1)),
-                            Text("Klik untuk Ambil Foto Bukti")
+                            // Icon dan Teks berubah dinamis menyesuaikan layar!
+                            Icon(
+                              kIsWeb ? Icons.photo_library : Icons.camera_alt, 
+                              size: 50, 
+                              color: const Color(0xFF0D47A1)
+                            ),
+                            Text(kIsWeb ? "Klik untuk Pilih Foto dari Laptop" : "Klik untuk Ambil Foto Kamera")
                           ],
                         )
                       : ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.file(File(_gambarTerpilih!.path), fit: BoxFit.cover),
+                          child: Image.memory(_imageBytes!, fit: BoxFit.cover),
                         ),
                   ),
                 ),
