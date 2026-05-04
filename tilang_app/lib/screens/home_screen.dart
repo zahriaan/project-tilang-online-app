@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert'; 
 import 'package:firebase_auth/firebase_auth.dart'; 
+import 'package:cloud_firestore/cloud_firestore.dart'; 
 import 'package:share_plus/share_plus.dart';       
 import '../services/database_service.dart';
 import '../model/model_pelanggaran.dart';
@@ -60,7 +61,6 @@ class _BerandaTabState extends State<BerandaTab> {
   final DatabaseService _db = DatabaseService();
   String kataKunci = ""; 
 
-  // TENTUKAN EMAIL KHUSUS KOMANDAN DI SINI
   final String emailKomandan = "komandan@sipegar.com"; 
 
   Widget _tampilkanGambarAman(String kodeFoto) {
@@ -84,12 +84,10 @@ class _BerandaTabState extends State<BerandaTab> {
 
   @override
   Widget build(BuildContext context) {
-    // Ambil data user yang sedang login saat ini
     final User? currentUser = FirebaseAuth.instance.currentUser;
     final String currentUid = currentUser?.uid ?? '';
     final String currentEmail = currentUser?.email ?? '';
 
-    // Cek apakah yang login adalah sang Komandan
     final bool isKomandan = currentEmail == emailKomandan;
 
     return Scaffold(
@@ -144,7 +142,67 @@ class _BerandaTabState extends State<BerandaTab> {
                           child: _tampilkanGambarAman(data.fotoUrl),
                         ),
                         title: Text(data.kategori, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text("${data.platNomor} • ${DateFormat('dd MMM yyyy, HH:mm').format(data.waktuKejadian)}"),
+                        
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("${data.platNomor} • ${DateFormat('dd MMM yyyy, HH:mm').format(data.waktuKejadian)}"),
+                            const SizedBox(height: 6),
+                            FutureBuilder<DocumentSnapshot>(
+                              future: FirebaseFirestore.instance.collection('users').doc(data.idPetugas).get(),
+                              builder: (context, userSnapshot) {
+                                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                                  return const Text("Memuat...", style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic));
+                                }
+                                if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+                                  return Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 9,
+                                        backgroundColor: Colors.grey.shade400,
+                                        child: const Icon(Icons.person_off, size: 12, color: Colors.white),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        "Pelapor: Tidak Dikenal", 
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade600)
+                                      ),
+                                    ],
+                                  );
+                                }
+                                var userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                                String namaLengkap = userData['namaLengkap'] ?? userData['nama'] ?? 'Petugas';
+                                
+                                String namaDepan = namaLengkap.split(' ')[0]; 
+                                String? fotoBase64 = userData['fotoProfil'];
+                                
+                                String teksTampil = (data.idPetugas == currentUid) ? "Anda" : namaDepan;
+
+                                return Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 9, 
+                                      backgroundColor: const Color(0xFF0D47A1),
+                                      backgroundImage: fotoBase64 != null && fotoBase64.isNotEmpty
+                                          ? MemoryImage(base64Decode(fotoBase64))
+                                          : NetworkImage('https://ui-avatars.com/api/?name=$namaDepan&color=FFFFFF&background=0D47A1&bold=true') as ImageProvider,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      "Pelapor: $teksTampil", // <-- Diubah di sini
+                                      style: TextStyle(
+                                        fontSize: 12, 
+                                        fontWeight: FontWeight.bold, 
+                                        color: (data.idPetugas == currentUid) ? const Color(0xFF0D47A1) : Colors.grey.shade700
+                                      )
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

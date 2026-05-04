@@ -65,7 +65,6 @@ class _DetailScreenState extends State<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. CEK APAKAH YANG LOGIN ADALAH KOMANDAN
     final bool isKomandan = FirebaseAuth.instance.currentUser?.email == 'komandan@sipegar.com';
 
     return Scaffold(
@@ -116,10 +115,68 @@ class _DetailScreenState extends State<DetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  FutureBuilder<DocumentSnapshot>(
+                    future: FirebaseFirestore.instance.collection('users').doc(widget.pelanggaran.idPetugas).get(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.only(bottom: 15),
+                          child: LinearProgressIndicator(),
+                        );
+                      }
+                      
+                      String namaPembuat = "Petugas Tidak Diketahui";
+                      String? fotoPembuat;
+
+                      if (snapshot.hasData && snapshot.data!.exists) {
+                        var userData = snapshot.data!.data() as Map<String, dynamic>;
+                        namaPembuat = userData['namaLengkap'] ?? userData['nama'] ?? "Petugas SIPEGAR";
+                        fotoPembuat = userData['fotoProfil'];
+                      }
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 20),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.grey.shade300)
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 25,
+                              backgroundColor: const Color(0xFF0D47A1),
+                              backgroundImage: fotoPembuat != null && fotoPembuat.isNotEmpty
+                                  ? MemoryImage(base64Decode(fotoPembuat))
+                                  : NetworkImage('https://ui-avatars.com/api/?name=$namaPembuat&color=FFFFFF&background=0D47A1&bold=true') as ImageProvider,
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text("Dilaporkan Oleh:", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Text(
+                                    namaPembuat, 
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))
+                                  ),
+                                  Text(
+                                    "Pada: ${DateFormat('dd MMM yyyy • HH:mm').format(widget.pelanggaran.waktuKejadian)}",
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)
+                                  ),
+                                ],
+                              ),
+                            )
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  
                   Text(widget.pelanggaran.kategori, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0D47A1))),
                   const SizedBox(height: 5),
                   Text("Plat Nomor: ${widget.pelanggaran.platNomor}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-                  Text("Waktu: ${DateFormat('dd MMMM yyyy, HH:mm').format(widget.pelanggaran.waktuKejadian)}"),
                   const Divider(height: 30),
                   
                   const Text("Deskripsi Kejadian:", style: TextStyle(fontWeight: FontWeight.bold)),
@@ -187,7 +244,6 @@ class _DetailScreenState extends State<DetailScreen> {
                             title: Text(k.isiKomentar),
                             subtitle: Text("$namaTampil • ${DateFormat('HH:mm').format(k.waktuKomentar)}"),
                             
-                            // 2. TOMBOL HAPUS KHUSUS KOMANDAN
                             trailing: isKomandan ? IconButton(
                               icon: const Icon(Icons.delete_outline, color: Colors.red),
                               onPressed: () {
@@ -203,14 +259,12 @@ class _DetailScreenState extends State<DetailScreen> {
                                       ),
                                       TextButton(
                                         onPressed: () async {
-                                          Navigator.pop(dialogContext); // Tutup pop-up
+                                          Navigator.pop(dialogContext); 
                                           try {
-                                            // Hapus dari UI layar
                                             setState(() {
                                               widget.pelanggaran.komentar.removeAt(index);
                                             });
 
-                                            // Langsung eksekusi tembak ke Firestore Database untuk dihapus permanen
                                             var docRef = FirebaseFirestore.instance.collection('pelanggaran').doc(widget.pelanggaran.id);
                                             var docSnapshot = await docRef.get();
                                             if (docSnapshot.exists) {
@@ -236,7 +290,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                   ),
                                 );
                               },
-                            ) : null, // Jika bukan komandan, trailing-nya kosong (null)
+                            ) : null, 
                           );
                         },
                       );
