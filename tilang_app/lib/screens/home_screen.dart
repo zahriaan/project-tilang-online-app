@@ -189,7 +189,7 @@ class _BerandaTabState extends State<BerandaTab> {
                                     ),
                                     const SizedBox(width: 5),
                                     Text(
-                                      "Pelapor: $teksTampil", // <-- Diubah di sini
+                                      "Pelapor: $teksTampil", 
                                       style: TextStyle(
                                         fontSize: 12, 
                                         fontWeight: FontWeight.bold, 
@@ -203,65 +203,81 @@ class _BerandaTabState extends State<BerandaTab> {
                           ],
                         ),
 
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.share, color: Colors.grey),
-                              onPressed: () {
-                                String pesanShare = "🚨 LAPORAN PELANGGARAN SIPEGAR 🚨\n\n"
-                                    "Kategori: ${data.kategori}\n"
-                                    "Plat Nomor: ${data.platNomor}\n"
-                                    "Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(data.waktuKejadian)}\n"
-                                    "Deskripsi: ${data.deskripsi}\n\n"
-                                    "📍 Titik Lokasi TKP:\n"
-                                    "https://www.google.com/maps/search/?api=1&query=${data.latitude},${data.longitude}";
-                                Share.share(pesanShare);
-                              },
-                            ),
-                            
-                            if (bisaHapus) 
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext dialogContext) => AlertDialog(
-                                      title: const Text("Hapus Laporan?"),
-                                      content: Text(
-                                        isKomandan 
-                                          ? "Sebagai Komandan, Anda akan menghapus laporan ini dari sistem secara permanen." 
-                                          : "Apakah kamu yakin ingin menghapus laporan ini? Data akan hilang permanen dari sistem."
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(dialogContext), 
-                                          child: const Text("Batal")
-                                        ),
-                                        TextButton(
-                                          onPressed: () async {
-                                            Navigator.pop(dialogContext); 
-                                            try {
-                                              await _db.hapusPelanggaran(data.id!);
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text("Laporan berhasil dihapus"))
-                                                );
-                                              }
-                                            } catch (e) {
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(content: Text("Gagal menghapus: $e"))
-                                                );
-                                              }
-                                            }
-                                          },
-                                          child: const Text("Hapus", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ],
+                        trailing: PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.more_vert, color: Colors.grey),
+                          onSelected: (String value) {
+                            if (value == 'share') {
+                              String pesanShare = "🚨 LAPORAN PELANGGARAN SIPEGAR 🚨\n\n"
+                                  "Kategori: ${data.kategori}\n"
+                                  "Plat Nomor: ${data.platNomor}\n"
+                                  "Waktu: ${DateFormat('dd MMM yyyy, HH:mm').format(data.waktuKejadian)}\n"
+                                  "Deskripsi: ${data.deskripsi}\n\n"
+                                  "📍 Titik Lokasi TKP:\n"
+                                  "http://maps.google.com/?q=${data.latitude},${data.longitude}";
+                              Share.share(pesanShare);
+                            } else if (value == 'delete') {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext dialogContext) => AlertDialog(
+                                  title: const Text("Hapus Laporan?"),
+                                  content: Text(
+                                    isKomandan 
+                                      ? "Sebagai Komandan, Anda akan menghapus laporan ini dari sistem secara permanen." 
+                                      : "Apakah kamu yakin ingin menghapus laporan ini? Data akan hilang permanen dari sistem."
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(dialogContext), 
+                                      child: const Text("Batal")
                                     ),
-                                  );
-                                },
+                                    TextButton(
+                                      onPressed: () async {
+                                        Navigator.pop(dialogContext); 
+                                        try {
+                                          await _db.hapusPelanggaran(data.id!);
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text("Laporan berhasil dihapus"))
+                                            );
+                                          }
+                                        } catch (e) {
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text("Gagal menghapus: $e"))
+                                            );
+                                          }
+                                        }
+                                      },
+                                      child: const Text("Hapus", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+                          },
+                          itemBuilder: (BuildContext context) => [
+                            const PopupMenuItem<String>(
+                              value: 'share',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.share, size: 18, color: Colors.grey),
+                                  SizedBox(width: 10),
+                                  Text("Bagikan", style: TextStyle(fontSize: 14)),
+                                ],
+                              ),
+                            ),
+
+                            if (bisaHapus)
+                              const PopupMenuItem<String>(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete, size: 18, color: Colors.red),
+                                    SizedBox(width: 10),
+                                    Text("Hapus", style: TextStyle(color: Colors.red, fontSize: 14)),
+                                  ],
+                                ),
                               ),
                           ],
                         ),
