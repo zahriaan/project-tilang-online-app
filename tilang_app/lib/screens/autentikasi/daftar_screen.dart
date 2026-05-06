@@ -88,100 +88,98 @@ class _DaftarScreenState extends State<DaftarScreen> {
     }
   }
 
+  // Bagian Build di daftar_screen.dart
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D47A1), // Background biru agar kontras dengan kartu
       appBar: AppBar(
-        title: const Text("Registrasi Petugas", style: TextStyle(color: Color(0xFF0D47A1), fontWeight: FontWeight.bold)),
+        title: const Text("Registrasi Akun", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF0D47A1)),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Center(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(topLeft: Radius.circular(50), topRight: Radius.circular(50)),
+        ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(25.0),
+          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                "Lengkapi data untuk membuat akun SIPEGAR",
-                style: TextStyle(fontSize: 16, color: Colors.black87),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
+              const Icon(Icons.app_registration_rounded, size: 60, color: Color(0xFF0D47A1)),
+              const SizedBox(height: 10),
+              const Text("Buat Akun Baru", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text("Lengkapi data petugas di bawah ini", style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 40),
 
-              // KOLOM NAMA LENGKAP
-              TextField(
-                controller: _namaController,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.person, color: Color(0xFF0D47A1)),
-                  labelText: "Nama Lengkap",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
+              _buildRegField(controller: _namaController, label: "Nama Lengkap", icon: Icons.person_outline),
+              const SizedBox(height: 15),
+              _buildRegField(controller: _emailController, label: "Email Resmi", icon: Icons.alternate_email, type: TextInputType.emailAddress),
+              const SizedBox(height: 15),
+              _buildRegField(
+                controller: _passwordController, 
+                label: "Kata Sandi", 
+                icon: Icons.lock_outline, 
+                isPassword: true, 
+                visible: !_sembunyikanSandi,
+                onToggle: () => setState(() => _sembunyikanSandi = !_sembunyikanSandi)
               ),
               const SizedBox(height: 15),
-
-              // KOLOM EMAIL
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.email, color: Color(0xFF0D47A1)),
-                  labelText: "Email Resmi",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
+              _buildRegField(
+                controller: _confirmPasswordController, 
+                label: "Konfirmasi Sandi", 
+                icon: Icons.lock_clock_outlined, 
+                isPassword: true, 
+                visible: !_sembunyikanKonfirmasi,
+                onToggle: () => setState(() => _sembunyikanKonfirmasi = !_sembunyikanKonfirmasi)
               ),
-              const SizedBox(height: 15),
-
-              // KOLOM KATA SANDI
-              TextField(
-                controller: _passwordController,
-                obscureText: _sembunyikanSandi,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.lock, color: Color(0xFF0D47A1)),
-                  labelText: "Kata Sandi",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  suffixIcon: IconButton(
-                    icon: Icon(_sembunyikanSandi ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                    onPressed: () => setState(() => _sembunyikanSandi = !_sembunyikanSandi),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              // KOLOM KONFIRMASI KATA SANDI
-              TextField(
-                controller: _confirmPasswordController,
-                obscureText: _sembunyikanKonfirmasi,
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.lock_clock, color: Color(0xFF0D47A1)),
-                  labelText: "Konfirmasi Kata Sandi",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  suffixIcon: IconButton(
-                    icon: Icon(_sembunyikanKonfirmasi ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
-                    onPressed: () => setState(() => _sembunyikanKonfirmasi = !_sembunyikanKonfirmasi),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              // TOMBOL DAFTAR
+              
+              const SizedBox(height: 40),
+              
               SizedBox(
-                height: 50,
+                width: double.infinity,
+                height: 55,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0D47A1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                   onPressed: _isLoading ? null : _prosesDaftar,
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("DAFTAR SEKARANG", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  child: _isLoading 
+                    ? const CircularProgressIndicator(color: Colors.white) 
+                    : const Text("DAFTAR SEKARANG", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Helper UI untuk konsistensi
+  Widget _buildRegField({
+    required TextEditingController controller, 
+    required String label, 
+    required IconData icon, 
+    bool isPassword = false, 
+    bool visible = false, 
+    VoidCallback? onToggle,
+    TextInputType type = TextInputType.text
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword && !visible,
+      keyboardType: type,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: const Color(0xFF0D47A1)),
+        suffixIcon: isPassword ? IconButton(icon: Icon(visible ? Icons.visibility : Icons.visibility_off), onPressed: onToggle) : null,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+        contentPadding: const EdgeInsets.symmetric(vertical: 18),
       ),
     );
   }
