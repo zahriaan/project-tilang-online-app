@@ -36,7 +36,8 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
     'Knalpot Modifikasi (Brong)',
     'Plat Nomor Palsu/Mati',
     'Surat Kendaraan Tidak Lengkap',
-    'Bonceng Lebih dari Satu Orang'
+    'Bonceng Lebih dari 2 Orang',
+    "Kecelakaan Lalu Lintas"
   ];
 
   Future<void> _pilihFoto(ImageSource source) async {
@@ -111,7 +112,6 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
             child: Column(
               children: [
                 GestureDetector(
-                  // LOGIKA CERDAS: CEK KONDISI WEB ATAU HP UNTUK PILIH FOTO
                   onTap: () {
                     if (kIsWeb) {
                       // Buka folder kalau lagi ngetes di Laptop/Web 

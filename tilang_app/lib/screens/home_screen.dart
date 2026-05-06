@@ -63,6 +63,39 @@ class _BerandaTabState extends State<BerandaTab> {
 
   final String emailKomandan = "komandan@sipegar.com"; 
 
+  void _tampilkanFilterKategori(BuildContext context) async {
+    final List<String> daftarKategori = [
+      "Semua",
+      "Tidak Pakai Helm",
+      "Melawan Arus",
+      "Melanggar Lampu Merah",
+      "Tidak Pakai Plat Kendaraan",
+      "Knalpot Modifikasi (Brong)",
+      "Plat Nomor Palsu/Mati",
+      "Suart Kendaraan Tidak Lengkap",
+      "Bonceng Lebih dari 2 Orang",
+      "Kecelakaan Lalu Lintas"
+    ];
+
+    final String? terpilih = await showMenu<String>(
+      context: context,
+      // Posisi popup muncul sedikit di bawah search bar
+      position: const RelativeRect.fromLTRB(100, 150, 20, 0),
+      items: daftarKategori.map((String kat) {
+        return PopupMenuItem<String>(
+          value: kat,
+          child: Text(kat),
+        );
+      }).toList(),
+    );
+
+    if (terpilih != null) {
+      setState(() {
+        kataKunci = (terpilih == "Semua") ? "" : terpilih;
+      });
+    }
+  }
+
   Widget _tampilkanGambarAman(String kodeFoto) {
     try {
       if (kodeFoto.isEmpty) {
@@ -104,15 +137,35 @@ class _BerandaTabState extends State<BerandaTab> {
         children: [
           Padding(
             padding: const EdgeInsets.all(10.0),
-            child: TextField(
-              onChanged: (val) => setState(() => kataKunci = val),
-              decoration: InputDecoration(
-                hintText: "Cari Plat Nomor atau Kategori...",
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1)),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    // Controller untuk sinkronisasi teks bisa ditambahkan nanti jika perlu
+                    onChanged: (val) => setState(() => kataKunci = val),
+                    decoration: InputDecoration(
+                      hintText: "Cari Plat atau Kategori...",
+                      prefixIcon: const Icon(Icons.search, color: Color(0xFF0D47A1)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D47A1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.filter_list, color: Colors.white),
+                    onPressed: () => _tampilkanFilterKategori(context),
+                  ),
+                ),
+              ],
             ),
           ),
+
           Expanded(
             child: StreamBuilder<List<ModelPelanggaran>>(
               stream: _db.streamPelanggaran(),
