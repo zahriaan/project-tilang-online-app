@@ -18,12 +18,17 @@ class _MasukScreenState extends State<MasukScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Deteksi Mode Gelap
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black87;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      // Mengikuti tema sistem (Hitam di Dark Mode)
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Biru dengan Logo
+            // Header Biru tetap biru (Identitas SIPEGAR)
             Container(
               height: MediaQuery.of(context).size.height * 0.4,
               width: double.infinity,
@@ -35,7 +40,8 @@ class _MasukScreenState extends State<MasukScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: Image.asset(
-                    'assets/images/signin_white.png', // Pastikan folder assets/images/ sudah sesuai
+                    // Menggunakan Logo Putih di Header Biru
+                    'assets/images/signin_white.png', 
                     height: 220,
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) {
@@ -46,32 +52,31 @@ class _MasukScreenState extends State<MasukScreen> {
               ),
             ),
 
-            // Form Input
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     "Masuk Akun Petugas",
                     style: TextStyle(
                       fontSize: 22, 
                       fontWeight: FontWeight.bold, 
-                      color: Colors.black87
+                      color: textColor // Otomatis Putih/Hitam
                     ),
                   ),
                   const SizedBox(height: 25),
                   
-                  // Field Email
                   _buildTextField(
+                    context: context,
                     controller: _emailController,
                     label: "Email Petugas",
                     icon: Icons.email_outlined,
                   ),
                   const SizedBox(height: 20),
                   
-                  // Field Password
                   _buildTextField(
+                    context: context,
                     controller: _passwordController,
                     label: "Kata Sandi",
                     icon: Icons.lock_outline,
@@ -80,16 +85,13 @@ class _MasukScreenState extends State<MasukScreen> {
                   
                   const SizedBox(height: 35),
                   
-                  // Tombol Masuk
                   SizedBox(
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0D47A1),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15)
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                         elevation: 5,
                       ),
                       onPressed: _sedangLoading ? null : _handleLogin,
@@ -97,11 +99,7 @@ class _MasukScreenState extends State<MasukScreen> {
                           ? const CircularProgressIndicator(color: Colors.white)
                           : const Text(
                               "MASUK", 
-                              style: TextStyle(
-                                color: Colors.white, 
-                                fontWeight: FontWeight.bold, 
-                                fontSize: 16
-                              )
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
                             ),
                     ),
                   ),
@@ -113,10 +111,10 @@ class _MasukScreenState extends State<MasukScreen> {
                         context, 
                         MaterialPageRoute(builder: (context) => const DaftarScreen())
                       ),
-                      child: const Text(
+                      child: Text(
                         "Belum punya akun? Daftar di sini",
                         style: TextStyle(
-                          color: Color(0xFF0D47A1), 
+                          color: isDarkMode ? Colors.blue[300] : const Color(0xFF0D47A1), 
                           fontWeight: FontWeight.w600
                         ),
                       ),
@@ -155,49 +153,34 @@ class _MasukScreenState extends State<MasukScreen> {
     }
   }
 
-    Widget _buildTextField({
+  Widget _buildTextField({
+    required BuildContext context,
     required TextEditingController controller, 
     required String label, 
     required IconData icon, 
     bool isPassword = false
   }) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDarkMode ? Colors.white : Colors.black;
+
     return TextField(
       controller: controller,
       obscureText: isPassword,
-      // Atur gaya teks input
-      style: const TextStyle(color: Colors.black, fontSize: 16),
+      style: TextStyle(color: textColor, fontSize: 16),
       decoration: InputDecoration(
-        // === BAGIAN KUNCI UNTUK MEMOTONG GARIS ===
-        
-        // labelText akan memotong garis OutlineInputBorder
         labelText: label, 
-        labelStyle: const TextStyle(color: Color(0xFF0D47A1)), 
-        
-        // Ikon di sebelah kiri
-        prefixIcon: Icon(icon, color: const Color(0xFF0D47A1)),
-        
-        // contentPadding yang nyaman agar teks tidak sesak
+        labelStyle: TextStyle(color: isDarkMode ? Colors.blue[200] : const Color(0xFF0D47A1)), 
+        prefixIcon: Icon(icon, color: isDarkMode ? Colors.blue[200] : const Color(0xFF0D47A1)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        
-        // Definisikan OutlineInputBorder untuk membungkus field
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        
-        // Garis saat field tidak aktif (abu-abu)
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+          borderSide: BorderSide(color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
         ),
-        
-        // Garis saat field aktif diklik (biru tua)
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFF0D47A1), width: 2),
+          borderSide: BorderSide(color: isDarkMode ? Colors.blue[400]! : const Color(0xFF0D47A1), width: 2),
         ),
-        
-        // === MATIKAN FILLED AGAR TIDAK MENUMPUK ===
-        // filled di-set false agar celah label terlihat bersih
         filled: false, 
       ),
     );
