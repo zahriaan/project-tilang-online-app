@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http; // Pastikan package ini ada di pubspec.yaml
 import '../services/location_service.dart';
 import '../services/database_service.dart';
 import '../model/model_pelanggaran.dart';
@@ -28,7 +27,6 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
   final _platController = TextEditingController();
   final _deskripsiController = TextEditingController();
   bool _sedangLoading = false;
-  bool _isGenerating = false; // Loading khusus untuk AI
 
   final List<String> _daftarKategori = [
     'Tidak Pakai Helm',
@@ -47,7 +45,7 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: source,
-      imageQuality: 25, // Kualitas ditingkatkan sedikit agar AI lebih akurat
+      imageQuality: 20, 
       maxWidth: 800,
     );
 
@@ -60,80 +58,7 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
     }
   }
 
-  // --- 2. LOGIKA AI GENERATE DESCRIPTION ---
-  Future<void> _generateDescriptionWithAI() async {
-    if (_fotoBase64 == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Ambil foto bukti terlebih dahulu!")),
-      );
-      return;
-    }
-
-    setState(() => _isGenerating = true);
-
-    try {
-      const apiKey = 'AIzaSyCZ1WPPD_MukZKceTrjqUgr4iXGQIUfY10'; 
-      const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=$apiKey';
-
-      final body = jsonEncode({
-        "contents": [
-          {
-            "parts": [
-              {
-                "inlineData": {"mimeType": "image/jpeg", "data": _fotoBase64},
-              },
-              {
-                "text": "Anda adalah asisten AI Polisi Lalu Lintas SIPEGAR (Sistem Informasi Pelanggaran Berkendara). "
-                    "Analisis foto ini dan pilih satu kategori dari daftar ini: $_daftarKategori. "
-                    "Buat deskripsi singkat, formal, dan jujur berdasarkan apa yang terlihat. "
-                    "\n\nFormat output harus:\n"
-                    "Kategori: [Nama Kategori]\n"
-                    "Deskripsi: [Isi Deskripsi]",
-              },
-            ],
-          },
-        ],
-      });
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
-        final text = jsonResponse['candidates'][0]['content']['parts'][0]['text'];
-
-        if (text != null) {
-          final lines = text.trim().split('\n');
-          String? aicategory;
-          String? aidescription;
-
-          for (var line in lines) {
-            if (line.toLowerCase().contains('kategori:')) {
-              aicategory = line.split(':')[1].trim();
-            } else if (line.toLowerCase().contains('deskripsi:')) {
-              aidescription = line.split(':')[1].trim();
-            }
-          }
-
-          setState(() {
-            if (_daftarKategori.contains(aicategory)) {
-              _kategoriDipilih = aicategory!;
-            }
-            _deskripsiController.text = aidescription ?? text;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('AI Error: $e');
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
-    }
-  }
-
-  // --- 3. LOGIKA SIMPAN KE DATABASE ---
+  // --- 2. LOGIKA SIMPAN KE DATABASE ---
   Future<void> _prosesSimpan() async {
     if (_fotoBase64 == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Foto bukti wajib ada!")));
@@ -170,8 +95,6 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
     }
   }
 
-  // ... (imports tetap sama)
-
   @override
   Widget build(BuildContext context) {
     // Ambil skema warna tema saat ini (terang/gelap)
@@ -179,7 +102,6 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
     final textColor = isDarkMode ? Colors.white : Colors.black87;
 
     return Scaffold(
-      // Hapus backgroundColor statis agar mengikuti tema sistem
       appBar: AppBar(
         title: const Text("Input Pelanggaran Baru", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF0D47A1),
@@ -192,11 +114,11 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- AREA FOTO (Gunakan LayoutBuilder agar adaptif) ---
+                  // --- AREA FOTO ---
                   GestureDetector(
                     onTap: () => _pilihFoto(kIsWeb ? ImageSource.gallery : ImageSource.camera),
                     child: Container(
-                      height: 220, // Kurangi sedikit tinggi agar tidak overflow di HP kecil
+                      height: 220,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: isDarkMode ? Colors.grey[900] : Colors.grey[100],
@@ -226,28 +148,6 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // --- TOMBOL GENERATE AI (Gunakan Flexible/Expanded jika dalam Row) ---
-                  if (_imageBytes != null)
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.orange, width: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: _isGenerating ? null : _generateDescriptionWithAI,
-                        icon: _isGenerating
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))
-                            : const Icon(Icons.auto_awesome, color: Colors.orange),
-                        label: Text(
-                          _isGenerating ? "Menganalisis..." : "Generate Deskripsi (AI)",
-                          style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
                   const SizedBox(height: 25),
 
                   Text("Detail Informasi", 
@@ -255,11 +155,11 @@ class _AddViolationScreenState extends State<AddViolationScreen> {
                   ),
                   const SizedBox(height: 15),
 
-                  // --- FORM INPUT (Pastikan tidak ada pembungkus Row yang menjepit) ---
+                  // --- FORM INPUT ---
                   DropdownButtonFormField<String>(
-                    isExpanded: true, // SOLUSI OVERFLOW: Agar teks kategori tidak memotong garis
+                    isExpanded: true,
                     value: _kategoriDipilih,
-                    style: TextStyle(color: textColor), // Mengikuti tema
+                    style: TextStyle(color: textColor),
                     dropdownColor: isDarkMode ? Colors.grey[850] : Colors.white,
                     decoration: InputDecoration(
                       labelText: "Kategori Pelanggaran",

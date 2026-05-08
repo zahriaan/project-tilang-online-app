@@ -44,6 +44,7 @@ dependencies:
   share_plus: ^12.0.2
   provider: ^6.1.5+1
   intl: ^0.20.2
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:
@@ -73,6 +74,7 @@ flutter:
     - assets/images/splash_bg.png
     - assets/images/signin_white.png
     - assets/images/signin_black.png
+    - assets/images/google_logo.png
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
